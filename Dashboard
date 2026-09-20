@@ -1,0 +1,770 @@
+#include <WiFi.h>
+#include <WebServer.h>
+
+const char* ssid = "SMARTMINE";
+const char* password = "12345678";
+
+WebServer server(80);
+
+String cameraURL = "http://192.168.4.2";
+
+String mode = "AUTO";
+String distance = "--";
+String gas = "--";
+String frontIR = "CLEAR";
+String rearIR = "CLEAR";
+String systemStatus = "ONLINE";
+
+void sendCommand(char command)
+{
+  Serial.write(command);
+}
+
+void dashboard()
+{
+  String html = R"rawliteral(
+
+<!DOCTYPE html>
+
+<html>
+
+<head>
+
+<meta name="viewport"
+content="width=device-width,initial-scale=1">
+
+<title>SmartMine Dashboard</title>
+
+<style>
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: Arial, Helvetica, sans-serif;
+  background: #eef3f7;
+  color: #17202a;
+}
+
+.header {
+  background: #ffffff;
+  padding: 18px 25px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+}
+
+.logo {
+  font-size: 26px;
+  font-weight: bold;
+}
+
+.subtitle {
+  color: #687580;
+  font-size: 13px;
+  margin-top: 4px;
+}
+
+.online {
+  color: #14833b;
+  font-weight: bold;
+}
+
+.container {
+  padding: 20px;
+  max-width: 1400px;
+  margin: auto;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: 20px;
+}
+
+.card {
+  background: white;
+  border-radius: 16px;
+  padding: 20px;
+  box-shadow: 0 3px 12px rgba(0,0,0,0.08);
+}
+
+.card h2 {
+  margin-top: 0;
+  font-size: 20px;
+}
+
+.camera {
+  width: 100%;
+  min-height: 400px;
+  background: #111;
+  border-radius: 12px;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.camera img {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+
+.cameraText {
+  color: white;
+  font-size: 16px;
+}
+
+.statusGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.sensor {
+  background: #f5f8fa;
+  border-radius: 12px;
+  padding: 15px;
+}
+
+.sensorTitle {
+  font-size: 13px;
+  color: #697781;
+}
+
+.sensorValue {
+  font-size: 22px;
+  font-weight: bold;
+  margin-top: 6px;
+}
+
+.safe {
+  color: #16803c;
+}
+
+.warning {
+  color: #c57a00;
+}
+
+.danger {
+  color: #c62828;
+}
+
+.modeButtons {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 20px;
+}
+
+button {
+  border: none;
+  border-radius: 10px;
+  padding: 13px 20px;
+  font-size: 15px;
+  font-weight: bold;
+  cursor: pointer;
+}
+
+.auto {
+  background: #dff4e6;
+  color: #16743a;
+}
+
+.manual {
+  background: #e2ecff;
+  color: #2459a6;
+}
+
+.stop {
+  background: #ffe1e1;
+  color: #b42323;
+}
+
+.control {
+  width: 80px;
+  height: 55px;
+  padding: 0;
+  font-size: 24px;
+  background: #edf2f5;
+}
+
+.control:hover {
+  background: #dce5ea;
+}
+
+.stopButton {
+  background: #ffdddd;
+  color: #b21e1e;
+}
+
+.controls {
+  text-align: center;
+}
+
+.controlRow {
+  margin: 7px;
+}
+
+.emergency {
+  width: 100%;
+  margin-top: 20px;
+  background: #d92323;
+  color: white;
+  font-size: 17px;
+  padding: 16px;
+}
+
+.servoButtons {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  margin-top: 15px;
+}
+
+.servoButton {
+  background: #edf2f5;
+}
+
+.footer {
+  text-align: center;
+  padding: 20px;
+  color: #687580;
+  font-size: 13px;
+}
+
+@media(max-width: 900px) {
+
+  .grid {
+    grid-template-columns: 1fr;
+  }
+
+  .camera {
+    min-height: 250px;
+  }
+
+}
+
+</style>
+
+</head>
+
+
+<body>
+
+
+<div class="header">
+
+<div>
+
+<div class="logo">
+SMARTMINE
+</div>
+
+<div class="subtitle">
+Autonomous Mine Exploration & Safety Rover
+</div>
+
+</div>
+
+<div class="online">
+● SYSTEM ONLINE
+</div>
+
+</div>
+
+
+<div class="container">
+
+
+<div class="grid">
+
+
+<div class="card">
+
+<h2>LIVE CAMERA SURVEILLANCE</h2>
+
+<div class="camera">
+
+<img
+id="camera"
+src="http://192.168.4.2"
+alt="ESP32-CAM Stream"
+>
+
+</div>
+
+</div>
+
+
+<div class="card">
+
+<h2>ROVER STATUS</h2>
+
+<div class="statusGrid">
+
+
+<div class="sensor">
+
+<div class="sensorTitle">
+MODE
+</div>
+
+<div
+id="mode"
+class="sensorValue safe">
+AUTO
+</div>
+
+</div>
+
+
+<div class="sensor">
+
+<div class="sensorTitle">
+DISTANCE
+</div>
+
+<div
+id="distance"
+class="sensorValue">
+-- cm
+</div>
+
+</div>
+
+
+<div class="sensor">
+
+<div class="sensorTitle">
+GAS LEVEL
+</div>
+
+<div
+id="gas"
+class="sensorValue">
+--
+</div>
+
+</div>
+
+
+<div class="sensor">
+
+<div class="sensorTitle">
+FRONT IR
+</div>
+
+<div
+id="front"
+class="sensorValue safe">
+CLEAR
+</div>
+
+</div>
+
+
+<div class="sensor">
+
+<div class="sensorTitle">
+REAR IR
+</div>
+
+<div
+id="rear"
+class="sensorValue safe">
+CLEAR
+</div>
+
+</div>
+
+
+<div class="sensor">
+
+<div class="sensorTitle">
+SYSTEM
+</div>
+
+<div
+id="system"
+class="sensorValue safe">
+ONLINE
+</div>
+
+</div>
+
+
+</div>
+
+</div>
+
+
+</div>
+
+
+<div class="grid">
+
+
+<div class="card">
+
+<h2>ROVER MOVEMENT</h2>
+
+<div class="controls">
+
+<div class="controlRow">
+
+<button
+class="control"
+onclick="sendCommand('F')">
+↑
+</button>
+
+</div>
+
+
+<div class="controlRow">
+
+<button
+class="control"
+onclick="sendCommand('L')">
+←
+</button>
+
+
+<button
+class="control stopButton"
+onclick="sendCommand('S')">
+STOP
+</button>
+
+
+<button
+class="control"
+onclick="sendCommand('R')">
+→
+</button>
+
+</div>
+
+
+<div class="controlRow">
+
+<button
+class="control"
+onclick="sendCommand('B')">
+↓
+</button>
+
+</div>
+
+</div>
+
+</div>
+
+
+<div class="card">
+
+<h2>SYSTEM MODE</h2>
+
+<div class="modeButtons">
+
+<button
+class="auto"
+onclick="sendCommand('A')">
+AUTO MODE
+</button>
+
+
+<button
+class="manual"
+onclick="sendCommand('M')">
+MANUAL MODE
+</button>
+
+</div>
+
+
+<h3>Servo Scan</h3>
+
+<div class="servoButtons">
+
+<button
+class="servoButton"
+onclick="sendCommand('Q')">
+LEFT
+</button>
+
+
+<button
+class="servoButton"
+onclick="sendCommand('C')">
+CENTER
+</button>
+
+
+<button
+class="servoButton"
+onclick="sendCommand('E')">
+RIGHT
+</button>
+
+</div>
+
+
+<button
+class="emergency"
+onclick="emergencyStop()">
+EMERGENCY STOP
+</button>
+
+</div>
+
+
+</div>
+
+
+<div class="footer">
+
+SMARTMINE • Intelligent Mine Exploration Rover
+
+</div>
+
+
+</div>
+
+
+<script>
+
+function sendCommand(command)
+{
+
+  fetch("/command?cmd=" + command)
+
+  .then(response => response.text())
+
+  .then(data => {
+
+    console.log(data);
+
+  })
+
+  .catch(error => {
+
+    console.log(error);
+
+  });
+
+}
+
+
+function emergencyStop()
+{
+
+  if(
+    confirm(
+      "Are you sure you want to activate emergency stop?"
+    )
+  )
+  {
+
+    sendCommand("X");
+
+  }
+
+}
+
+
+function updateCamera()
+{
+
+  let camera =
+    document.getElementById("camera");
+
+  let url =
+    localStorage.getItem("cameraURL");
+
+  if(url)
+  {
+    camera.src = url;
+  }
+
+}
+
+
+function updateStatus()
+{
+
+  fetch("/status")
+
+  .then(response => response.json())
+
+  .then(data =>
+  {
+
+    document.getElementById("mode")
+      .innerText = data.mode;
+
+    document.getElementById("distance")
+      .innerText =
+      data.distance + " cm";
+
+    document.getElementById("gas")
+      .innerText = data.gas;
+
+    document.getElementById("front")
+      .innerText = data.front;
+
+    document.getElementById("rear")
+      .innerText = data.rear;
+
+    document.getElementById("system")
+      .innerText = data.system;
+
+  })
+
+  .catch(error =>
+  {
+
+    document.getElementById("system")
+      .innerText = "OFFLINE";
+
+  });
+
+}
+
+
+setInterval(
+  updateStatus,
+  1000
+);
+
+updateCamera();
+
+</script>
+
+
+</body>
+
+</html>
+
+)rawliteral";
+
+
+  server.send(
+    200,
+    "text/html",
+    html
+  );
+}
+
+
+void commandHandler()
+{
+
+  if (!server.hasArg("cmd"))
+  {
+    server.send(
+      400,
+      "text/plain",
+      "Missing command"
+    );
+
+    return;
+  }
+
+  String command =
+    server.arg("cmd");
+
+  if(command.length() > 0)
+  {
+    sendCommand(
+      command.charAt(0)
+    );
+  }
+
+  server.send(
+    200,
+    "text/plain",
+    "Command sent"
+  );
+}
+
+
+void statusHandler()
+{
+
+  String json = "{";
+
+  json += "\"mode\":\"";
+  json += mode;
+  json += "\",";
+
+  json += "\"distance\":\"";
+  json += distance;
+  json += "\",";
+
+  json += "\"gas\":\"";
+  json += gas;
+  json += "\",";
+
+  json += "\"front\":\"";
+  json += frontIR;
+  json += "\",";
+
+  json += "\"rear\":\"";
+  json += rearIR;
+  json += "\",";
+
+  json += "\"system\":\"";
+  json += systemStatus;
+  json += "\"";
+
+  json += "}";
+
+  server.send(
+    200,
+    "application/json",
+    json
+  );
+}
+
+
+void setup()
+{
+
+  Serial.begin(115200);
+
+  WiFi.softAP(
+    ssid,
+    password
+  );
+
+  server.on(
+    "/",
+    dashboard
+  );
+
+  server.on(
+    "/command",
+    commandHandler
+  );
+
+  server.on(
+    "/status",
+    statusHandler
+  );
+
+  server.begin();
+
+}
+
+
+void loop()
+{
+
+  server.handleClient();
+
+}
